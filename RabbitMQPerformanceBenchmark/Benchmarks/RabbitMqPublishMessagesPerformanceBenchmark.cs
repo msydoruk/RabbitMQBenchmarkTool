@@ -7,24 +7,17 @@ using RabbitMQPerformanceBenchmark.Models;
 namespace RabbitMQPerformanceBenchmark.Benchmarks
 {
     [MemoryDiagnoser]
-    [IterationCount(10)] // Run each benchmark 10 times
-    [WarmupCount(2)]     // Perform 2 warm-up iterations before measurement starts
     public class RabbitMqPublishMessagesPerformanceBenchmark
     {
-        private const string QueueName = "TestQueue";
-        private const int TotalMessages = 10000;
         private IModel _channel;
         private IConnection _connection;
 
         [GlobalSetup]
         public void Setup()
         {
-            var factory = new ConnectionFactory() { HostName = "localhost" };
+            var factory = new ConnectionFactory() { HostName = TestQueueConfiguration.HostName };
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
-
-            // Ensure the queue exists before testing
-            // _channel.QueueDeclare(queue: QueueName, durable: false, exclusive: false, autoDelete: false, arguments: null);
         }
 
         [GlobalCleanup]
@@ -38,27 +31,27 @@ namespace RabbitMQPerformanceBenchmark.Benchmarks
         [Benchmark]
         public void PublishMessages()
         {
-            var beaconEvent = new MaxRssiSmoothingBeaconEvent
+            var beaconEvent = new SignalEvent
             {
-                LocationID = 56,
-                DeviceID = new Guid("ACD70D00-30DD-46FA-9E7B-B00300FF9BF7"),
-                EntityID = 3,
-                BeaconID = "E101B392ADA32224231605EF5877491700033FD3",
-                BeaconType = BeaconType.Asset,
-                EventType = MaxRssiSmoothingBeaconEventType.Position,
-                AlgorithmHandlerType = AlgorithmHandlerType.GreedinessLocationHandler,
-                EventTimeUtc = DateTime.UtcNow,
-                CurrentTimeUtc = DateTime.UtcNow,
-                AdditionalInspectorsCount = 4,
-                ExtendedEventLogJson = "{}"
+                AreaID = 56,
+                SensorID = Guid.NewGuid(),
+                ObjectID = 3,
+                TagID = Guid.NewGuid().ToString(),
+                Category = TagCategory.Equipment,
+                Type = SignalEventType.LocationUpdate,
+                Method = ProcessingMethod.StrictLeafLocator,
+                TimestampUtc = DateTime.UtcNow,
+                CurrentUtc = DateTime.UtcNow,
+                ExtraInspectorCount = 4,
+                AdditionalEventDataJson = "{}"
             };
 
             string messageBody = JsonConvert.SerializeObject(beaconEvent);
             var body = Encoding.UTF8.GetBytes(messageBody);
 
-            for (int i = 0; i < TotalMessages; i++)
+            for (int i = 0; i < TestQueueConfiguration.TotalMessages; i++)
             {
-                _channel.BasicPublish(exchange: "", routingKey: QueueName, basicProperties: null, body: body);
+                _channel.BasicPublish(exchange: "", routingKey: TestQueueConfiguration.QueueName, basicProperties: null, body: body);
             }
         }
     }

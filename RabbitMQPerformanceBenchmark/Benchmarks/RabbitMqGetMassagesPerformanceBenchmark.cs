@@ -11,21 +11,15 @@ namespace RabbitMQPerformanceBenchmark.Benchmarks
     [WarmupCount(2)]     // Perform 2 warm-up iterations before measurement starts
     public class RabbitMqGetMassagesPerformanceBenchmark
     {
-        private const string QueueName = "TestQueue";
-        private const int TotalMessages = 10000;
-        private const int MessageReceiveTimeoutMilliseconds = 1000;
         private IModel _channel;
         private IConnection _connection;
 
         [GlobalSetup]
         public void Setup()
         {
-            var factory = new ConnectionFactory() { HostName = "localhost" };
+            var factory = new ConnectionFactory() { HostName = TestQueueConfiguration.HostName };
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
-
-            // Ensure the queue exists before testing
-            // _channel.QueueDeclare(queue: QueueName, durable: false, exclusive: false, autoDelete: false, arguments: null);
         }
 
         [GlobalCleanup]
@@ -68,9 +62,9 @@ namespace RabbitMQPerformanceBenchmark.Benchmarks
         {
             var totalMessagesReceived = 0;
 
-            while (totalMessagesReceived < TotalMessages)
+            while (totalMessagesReceived < TestQueueConfiguration.TotalMessages)
             {
-                var receivedMessages = await GetMessagesInBatchWithTimeout(QueueName, batchSize);
+                var receivedMessages = await GetMessagesInBatchWithTimeout(TestQueueConfiguration.QueueName, batchSize);
                 totalMessagesReceived += receivedMessages.Count;
 
                 Console.WriteLine($"Received {receivedMessages.Count} messages in batch. Total received: {totalMessagesReceived}");
@@ -82,7 +76,7 @@ namespace RabbitMQPerformanceBenchmark.Benchmarks
         {
             var totalMessagesReceived = 0;
 
-            while (totalMessagesReceived < TotalMessages)
+            while (totalMessagesReceived < TestQueueConfiguration.TotalMessages)
             {
                 var receivedMessages = GetMessagesWithBasicGet(batchSize);
                 totalMessagesReceived += receivedMessages.Count;
@@ -98,7 +92,7 @@ namespace RabbitMQPerformanceBenchmark.Benchmarks
 
             for (int i = 0; i < batchSize; i++)
             {
-                var result = _channel.BasicGet(queue: QueueName, autoAck: false);
+                var result = _channel.BasicGet(queue: TestQueueConfiguration.QueueName, autoAck: false);
                 if (result != null)
                 {
                     var messageBody = Encoding.UTF8.GetString(result.Body.ToArray());
@@ -123,7 +117,7 @@ namespace RabbitMQPerformanceBenchmark.Benchmarks
             var consumer = new EventingBasicConsumer(_channel);
 
             var taskCompletionSource = new TaskCompletionSource<IList<MessageQueueContent>>();
-            var inactivityTimer = new System.Timers.Timer(MessageReceiveTimeoutMilliseconds) { AutoReset = false };
+            var inactivityTimer = new System.Timers.Timer(TestQueueConfiguration.MessageReceiveTimeoutMilliseconds) { AutoReset = false };
 
             var consumerTag = Guid.NewGuid().ToString();
             var lockObject = new object();
